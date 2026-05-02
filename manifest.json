@@ -4,9 +4,9 @@
   "description": "Gemeinsame Bargeld-Kasse für Julia & Christine",
   "icons": [
     {
-      "src": "app-icon-babe-kasse.png",
+      "src": "app-icon-babe-kasse.jpg",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     }
   ],
