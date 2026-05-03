@@ -179,7 +179,7 @@
         </select>
       </div>
     </div>
-    <button class="btn-add" onclick="addEntry()">+ Eintragen</button>
+    <button class="btn-add" id="btnAdd" onclick="addEntry()" disabled>+ Eintragen</button>
   </div>
 
   <div class="list-section">
@@ -199,6 +199,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, query, orderBy, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -211,11 +212,13 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = getFirestore(app);
 
 let selectedPerson = 'julia';
 let entries = [];
 let settledEntries = [];
+let currentUser = null;
 
 document.getElementById('inDate').valueAsDate = new Date();
 
@@ -231,6 +234,7 @@ window.selectPerson = function(p) {
 };
 
 window.addEntry = async function() {
+  if (!currentUser) { alert('Noch nicht angemeldet. Bitte kurz warten.'); return; }
   const desc = document.getElementById('inDesc').value.trim();
   const amount = parseFloat(document.getElementById('inAmount').value);
   const date = document.getElementById('inDate').value;
@@ -246,11 +250,13 @@ window.addEntry = async function() {
 };
 
 window.deleteEntry = async function(id) {
+  if (!currentUser) return;
   if (!confirm('Eintrag löschen?')) return;
   await deleteDoc(doc(db, 'entries', id));
 };
 
 window.settle = async function() {
+  if (!currentUser) return;
   const active = entries.filter(e => !e.settled);
   if (active.length === 0) return;
   if (!confirm('Abrechnung jetzt durchführen? Alle offenen Ausgaben werden als abgerechnet markiert.')) return;
@@ -348,20 +354,37 @@ function render() {
   }
 }
 
-setStatus('loading', 'Verbinde…');
-const q = query(collection(db, 'entries'), orderBy('createdAt', 'desc'));
-onSnapshot(q, snap => {
-  entries = [];
-  settledEntries = [];
-  snap.forEach(d => {
-    const data = { id: d.id, ...d.data() };
-    if (data.settled) settledEntries.push(data);
-    else entries.push(data);
+function startFirestore() {
+  const q = query(collection(db, 'entries'), orderBy('createdAt', 'desc'));
+  onSnapshot(q, snap => {
+    entries = [];
+    settledEntries = [];
+    snap.forEach(d => {
+      const data = { id: d.id, ...d.data() };
+      if (data.settled) settledEntries.push(data);
+      else entries.push(data);
+    });
+    render();
+    setStatus('ok', 'Synchronisiert');
+  }, err => {
+    setStatus('', 'Verbindungsfehler – ' + err.message);
   });
-  render();
-  setStatus('ok', 'Synchronisiert');
-}, err => {
-  setStatus('', 'Verbindungsfehler – ' + err.message);
+}
+
+setStatus('loading', 'Verbinde…');
+
+onAuthStateChanged(auth, user => {
+  if (user) {
+    currentUser = user;
+    document.getElementById('btnAdd').disabled = false;
+    startFirestore();
+  } else {
+    currentUser = null;
+    document.getElementById('btnAdd').disabled = true;
+    signInAnonymously(auth).catch(err => {
+      setStatus('', 'Anmeldung fehlgeschlagen – ' + err.message);
+    });
+  }
 });
 </script>
 </body>
