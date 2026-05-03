@@ -169,7 +169,7 @@
         <label>Kategorie</label>
         <select id="inCat">
           <option value="Sonstiges">Sonstiges</option>
-          <option value="Lebensmittel">Lebensmittel</option>
+          <option value="Lebensmittel" selected>Lebensmittel</option>
           <option value="Tanken">Tanken</option>
           <option value="Restaurant">Restaurant</option>
           <option value="Haushalt">Haushalt</option>
@@ -235,17 +235,18 @@ window.selectPerson = function(p) {
 
 window.addEntry = async function() {
   if (!currentUser) { alert('Noch nicht angemeldet. Bitte kurz warten.'); return; }
-  const desc = document.getElementById('inDesc').value.trim();
+  const descInput = document.getElementById('inDesc').value.trim();
   const amount = parseFloat(document.getElementById('inAmount').value);
   const date = document.getElementById('inDate').value;
   const cat = document.getElementById('inCat').value;
-  if (!desc || isNaN(amount) || amount <= 0 || !date) { alert('Bitte alle Felder ausfüllen.'); return; }
+  const desc = descInput || cat;
+  if (isNaN(amount) || amount <= 0 || !date) { alert('Bitte Betrag und Datum ausfüllen.'); return; }
   try {
     await addDoc(collection(db, 'entries'), { person: selectedPerson, desc, amount, date, cat, settled: false, createdAt: serverTimestamp() });
     document.getElementById('inDesc').value = '';
     document.getElementById('inAmount').value = '';
     document.getElementById('inDate').valueAsDate = new Date();
-    document.getElementById('inCat').value = 'Sonstiges';
+    document.getElementById('inCat').value = 'Lebensmittel';
   } catch(e) { alert('Fehler: ' + e.message); }
 };
 
