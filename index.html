@@ -481,6 +481,10 @@ function startFirestore() {
   });
 }
 
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/babe-kasse/sw.js').catch(() => {});
+}
+
 setStatus('loading', 'Verbinde…');
 
 onAuthStateChanged(auth, user => {
