@@ -117,6 +117,19 @@
   .settled-section { margin-top: 8px; margin-bottom: 20px; }
   .settled-section summary { cursor: pointer; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 10px; user-select: none; display: block; padding: 4px 0; }
   .entry.settled { opacity: 0.5; }
+  .io-bar { display: flex; gap: 10px; margin: 8px 0 32px; }
+  .btn-io { flex: 1; padding: 11px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface); font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+  .btn-io:hover { border-color: var(--text); color: var(--text); }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .modal-box { background: var(--surface); border-radius: 16px; padding: 22px; width: 100%; max-width: 480px; box-shadow: 0 8px 40px rgba(0,0,0,0.18); }
+  .modal-title { font-family: 'Playfair Display', serif; font-size: 1.1rem; margin-bottom: 6px; }
+  .modal-sub { font-size: 0.78rem; color: var(--muted); margin-bottom: 14px; }
+  .modal-ta { width: 100%; border: 1.5px solid var(--border); border-radius: 8px; padding: 10px; font-family: 'DM Sans', sans-serif; font-size: 0.8rem; color: var(--text); background: var(--bg); resize: vertical; outline: none; }
+  .modal-ta:focus { border-color: var(--text); }
+  .modal-msg { font-size: 0.8rem; color: #c0392b; margin-top: 8px; min-height: 18px; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 14px; }
+  .btn-modal-ok { flex: 1; padding: 11px; background: var(--text); color: white; border: none; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 500; cursor: pointer; }
+  .btn-modal-cancel { flex: 1; padding: 11px; background: transparent; border: 1.5px solid var(--border); border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.88rem; color: var(--muted); cursor: pointer; }
 </style>
 </head>
 <body>
@@ -206,6 +219,24 @@
     <div id="settledList"></div>
   </details>
 
+  <div class="io-bar">
+    <button class="btn-io" onclick="exportTxt()">↓ Exportieren</button>
+    <button class="btn-io" onclick="openImport()">↑ Importieren</button>
+  </div>
+
+</div>
+
+<div class="modal-overlay" id="importModal" style="display:none" onclick="if(event.target===this)closeImport()">
+  <div class="modal-box">
+    <div class="modal-title">Daten importieren</div>
+    <div class="modal-sub">Füge den Inhalt einer exportierten .txt-Datei ein.</div>
+    <textarea class="modal-ta" id="importTa" rows="10" placeholder="Export-Text hier einfügen…"></textarea>
+    <div class="modal-msg" id="importMsg"></div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" onclick="closeImport()">Abbrechen</button>
+      <button class="btn-modal-ok" onclick="doImport()">Importieren</button>
+    </div>
+  </div>
 </div>
 
 <script type="module">
@@ -287,6 +318,63 @@ window.settle = async function() {
     batch.update(ref, { settled: true, settledAt: serverTimestamp() });
   });
   await batch.commit();
+};
+
+window.exportTxt = function() {
+  const all = [...entries, ...settledEntries];
+  if (all.length === 0) { alert('Keine Daten zum Exportieren.'); return; }
+  const lines = [
+    '=== BABE KASSE EXPORT ===',
+    `Exportiert: ${new Date().toLocaleString('de-DE')}`,
+    '',
+    'DATUM|PERSON|BESCHREIBUNG|KATEGORIE|BETRAG|ABGERECHNET'
+  ];
+  all.sort((a,b) => b.date.localeCompare(a.date)).forEach(e => {
+    lines.push(`${e.date}|${e.person}|${e.desc}|${e.cat}|${e.amount.toFixed(2)}|${e.settled ? 'ja' : 'nein'}`);
+  });
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `kasse_export_${new Date().toISOString().slice(0,10)}.txt`;
+  a.click();
+};
+
+window.openImport = function() {
+  document.getElementById('importTa').value = '';
+  document.getElementById('importMsg').textContent = '';
+  document.getElementById('importModal').style.display = 'flex';
+};
+
+window.closeImport = function() {
+  document.getElementById('importModal').style.display = 'none';
+};
+
+window.doImport = async function() {
+  if (!currentUser) { alert('Noch nicht angemeldet.'); return; }
+  const text = document.getElementById('importTa').value.trim();
+  const msgEl = document.getElementById('importMsg');
+  if (!text.startsWith('=== BABE KASSE EXPORT ===')) {
+    msgEl.textContent = '⚠ Ungültiges Format – kompletten Export-Text einfügen.';
+    return;
+  }
+  const dataLines = text.split('\n').filter(l => l.includes('|') && !l.startsWith('DATUM'));
+  if (dataLines.length === 0) { msgEl.textContent = '⚠ Keine Einträge gefunden.'; return; }
+  const batch = writeBatch(db);
+  let count = 0;
+  for (const line of dataLines) {
+    const parts = line.split('|');
+    if (parts.length < 6) continue;
+    const [date, person, desc, cat, amountStr, settledStr] = parts;
+    const amount = parseFloat(amountStr);
+    if (!date || !person || isNaN(amount)) continue;
+    const ref = doc(collection(db, 'entries'));
+    batch.set(ref, { date, person, desc, cat, amount, settled: settledStr.trim() === 'ja', createdAt: serverTimestamp() });
+    count++;
+  }
+  if (count === 0) { msgEl.textContent = '⚠ Keine gültigen Einträge gefunden.'; return; }
+  if (!confirm(`${count} Einträge importieren?`)) return;
+  await batch.commit();
+  closeImport();
 };
 
 window.exportCSV = function() {
