@@ -171,8 +171,9 @@
   .btn-login:hover { background: #333; }
   .btn-login:disabled { background: #888; cursor: default; }
   .login-error { font-size: 0.82rem; color: #c0392b; margin-top: 10px; min-height: 18px; text-align: center; }
-  .btn-logout { background: none; border: 1px solid #555; color: #ccc; font-size: 0.7rem; cursor: pointer; padding: 5px 10px; font-family: 'DM Sans', sans-serif; letter-spacing: 0.05em; border-radius: 6px; position: absolute; top: 16px; right: 16px; transition: all 0.15s; }
-  .btn-logout:hover { color: white; border-color: white; }
+  .btn-logout { background: none; border: none; color: var(--muted); font-size: 0.72rem; cursor: pointer; padding: 4px 8px; font-family: 'DM Sans', sans-serif; letter-spacing: 0.05em; transition: color 0.15s; opacity: 0.6; }
+  .btn-logout:hover { color: var(--text); opacity: 1; }
+  .footer-row { text-align: center; margin: 32px 0 16px; }
 </style>
 </head>
 <body>
@@ -199,7 +200,6 @@
 <header>
   <h1>Julia &amp; Christine</h1>
   <p>Gemeinsame Kasse</p>
-  <button class="btn-logout" onclick="logout()" id="btnLogout">Abmelden</button>
   <div class="tab-bar">
     <button class="tab-btn active" id="tabKasse" onclick="selectView('kasse')">Kasse</button>
     <button class="tab-btn" id="tabShop" onclick="selectView('shop')">Einkaufsliste</button>
@@ -327,6 +327,10 @@
       <div id="shopDoneList"></div>
     </details>
 
+  </div>
+
+  <div class="footer-row">
+    <button class="btn-logout" onclick="logout()" id="btnLogout">Abmelden</button>
   </div>
 
 </div>
