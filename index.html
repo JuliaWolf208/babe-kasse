@@ -229,12 +229,25 @@
 <div class="modal-overlay" id="importModal" style="display:none" onclick="if(event.target===this)closeImport()">
   <div class="modal-box">
     <div class="modal-title">Daten importieren</div>
-    <div class="modal-sub">Füge den Inhalt einer exportierten .txt-Datei ein.</div>
+    <div class="modal-sub">Füge den Inhalt eines Export-Texts ein.</div>
     <textarea class="modal-ta" id="importTa" rows="10" placeholder="Export-Text hier einfügen…"></textarea>
     <div class="modal-msg" id="importMsg"></div>
     <div class="modal-actions">
       <button class="btn-modal-cancel" onclick="closeImport()">Abbrechen</button>
       <button class="btn-modal-ok" onclick="doImport()">Importieren</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="exportModal" style="display:none" onclick="if(event.target===this)closeExport()">
+  <div class="modal-box">
+    <div class="modal-title">Daten exportieren</div>
+    <div class="modal-sub">Tippe „Kopieren" oder markiere den Text und füge ihn in deine Notizen ein.</div>
+    <textarea class="modal-ta" id="exportTa" rows="12" readonly></textarea>
+    <div class="modal-msg" id="exportMsg"></div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" onclick="closeExport()">Schließen</button>
+      <button class="btn-modal-ok" onclick="copyExport()">Kopieren</button>
     </div>
   </div>
 </div>
@@ -332,11 +345,34 @@ window.exportTxt = function() {
   all.sort((a,b) => b.date.localeCompare(a.date)).forEach(e => {
     lines.push(`${e.date}|${e.person}|${e.desc}|${e.cat}|${e.amount.toFixed(2)}|${e.settled ? 'ja' : 'nein'}`);
   });
-  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8;' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `kasse_export_${new Date().toISOString().slice(0,10)}.txt`;
-  a.click();
+  document.getElementById('exportTa').value = lines.join('\n');
+  document.getElementById('exportMsg').textContent = '';
+  document.getElementById('exportModal').style.display = 'flex';
+};
+
+window.closeExport = function() {
+  document.getElementById('exportModal').style.display = 'none';
+};
+
+window.copyExport = async function() {
+  const ta = document.getElementById('exportTa');
+  const msg = document.getElementById('exportMsg');
+  try {
+    await navigator.clipboard.writeText(ta.value);
+    msg.style.color = '#1e6b3a';
+    msg.textContent = '✓ In Zwischenablage kopiert';
+  } catch(e) {
+    ta.focus();
+    ta.select();
+    try {
+      document.execCommand('copy');
+      msg.style.color = '#1e6b3a';
+      msg.textContent = '✓ Kopiert – jetzt in Notizen einfügen';
+    } catch(_) {
+      msg.style.color = '#c0392b';
+      msg.textContent = 'Bitte Text manuell markieren und kopieren.';
+    }
+  }
 };
 
 window.openImport = function() {
