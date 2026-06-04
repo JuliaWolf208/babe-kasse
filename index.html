@@ -192,6 +192,9 @@
     </div>
     <button class="btn-login" id="btnLogin" onclick="login()">Anmelden</button>
     <div class="login-error" id="loginError"></div>
+    <div style="text-align:center;margin-top:12px">
+      <button onclick="resetPassword()" style="background:none;border:none;color:var(--muted);font-size:0.78rem;font-family:'DM Sans',sans-serif;cursor:pointer;text-decoration:underline;padding:0">Passwort vergessen?</button>
+    </div>
   </div>
 </div>
 
@@ -365,7 +368,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, query, orderBy, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -771,6 +774,28 @@ if ('serviceWorker' in navigator) {
     location.reload();
   });
 }
+
+window.resetPassword = async function() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const errEl = document.getElementById('loginError');
+  if (!email) {
+    errEl.style.color = '#c0392b';
+    errEl.textContent = 'Bitte zuerst E-Mail eingeben.';
+    return;
+  }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    errEl.style.color = '#1e6b3a';
+    errEl.textContent = 'Reset-Mail gesendet! Bitte Postfach prüfen.';
+  } catch(e) {
+    errEl.style.color = '#c0392b';
+    if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-email') {
+      errEl.textContent = 'E-Mail-Adresse nicht gefunden.';
+    } else {
+      errEl.textContent = 'Fehler: ' + e.message;
+    }
+  }
+};
 
 window.login = async function() {
   const email = document.getElementById('loginEmail').value.trim();
