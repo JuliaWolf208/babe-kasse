@@ -151,6 +151,9 @@
   .shop-meta.j { color: var(--julia); }
   .shop-meta.c { color: var(--christine); }
   .shop-item.done .shop-name { text-decoration: line-through; color: var(--muted); }
+  .shop-move-btns { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+  .shop-move { width: 22px; height: 18px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg); color: var(--muted); font-size: 0.6rem; line-height: 1; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; }
+  .shop-move:disabled { opacity: 0.25; cursor: default; }
   .shop-input-row { display: flex; gap: 8px; }
   .shop-input-row input { flex: 1; border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 12px; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; color: var(--text); background: var(--bg); outline: none; transition: border-color 0.15s; min-width: 0; }
   .shop-input-row input:focus { border-color: var(--text); }
@@ -425,23 +428,42 @@ function updateWhoButtons() {
 }
 updateWhoButtons();
 
+function shopEffectiveOrder(i) {
+  return typeof i.order === 'number' ? i.order : (i.createdAt?.seconds || 0);
+}
+
 window.addShopItem = async function() {
   if (!currentUser) { alert('Noch nicht angemeldet. Bitte kurz warten.'); return; }
   const input = document.getElementById('shopInput');
   const name = input.value.trim();
   if (!name) return;
   try {
+    const maxOrder = shopItems.reduce((m, i) => Math.max(m, shopEffectiveOrder(i)), -1);
     await addDoc(collection(db, 'shopping'), {
       name,
       addedBy: whoAmI,
       done: false,
       doneBy: null,
       doneAt: null,
+      order: maxOrder + 1,
       createdAt: serverTimestamp()
     });
     input.value = '';
     input.focus();
   } catch(e) { alert('Fehler: ' + e.message); }
+};
+
+window.moveShopItem = async function(id, dir) {
+  if (!currentUser) return;
+  const group = [...shopItems].sort((a, b) => shopEffectiveOrder(a) - shopEffectiveOrder(b));
+  const idx = group.findIndex(i => i.id === id);
+  if (idx === -1) return;
+  const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= group.length) return;
+  [group[idx], group[swapIdx]] = [group[swapIdx], group[idx]];
+  const batch = writeBatch(db);
+  group.forEach((i, pos) => batch.update(doc(db, 'shopping', i.id), { order: pos }));
+  await batch.commit();
 };
 
 window.toggleShopItem = async function(id, currentlyDone) {
@@ -682,17 +704,15 @@ function render() {
 }
 
 function renderShop() {
-  const open = [...shopItems].sort((a,b) => {
-    const ta = a.createdAt?.seconds || 0;
-    const tb = b.createdAt?.seconds || 0;
-    return ta - tb;
-  });
+  const open = [...shopItems].sort((a,b) => shopEffectiveOrder(a) - shopEffectiveOrder(b));
   const openList = document.getElementById('shopOpenList');
   openList.innerHTML = open.length === 0
     ? '<div class="empty">Noch keine Einkäufe.</div>'
-    : open.map(i => {
+    : open.map((i, idx) => {
         const addedName = i.addedBy === 'julia' ? 'Julia' : 'Christine';
         const addedCls = i.addedBy === 'julia' ? 'j' : 'c';
+        const isFirst = idx === 0;
+        const isLast = idx === open.length - 1;
         return `
         <div class="shop-item">
           <button class="shop-check" onclick="toggleShopItem('${i.id}', false)" title="Abhaken">
@@ -701,6 +721,10 @@ function renderShop() {
           <div class="shop-info">
             <div class="shop-name">${esc(i.name)}</div>
             <div class="shop-meta ${addedCls}">Hinzugefügt von ${addedName}</div>
+          </div>
+          <div class="shop-move-btns">
+            <button class="shop-move" onclick="moveShopItem('${i.id}','up')" ${isFirst ? 'disabled' : ''} title="Nach oben">▲</button>
+            <button class="shop-move" onclick="moveShopItem('${i.id}','down')" ${isLast ? 'disabled' : ''} title="Nach unten">▼</button>
           </div>
           <button class="btn-del" onclick="deleteShopItem('${i.id}')" title="Löschen">✕</button>
         </div>`;
