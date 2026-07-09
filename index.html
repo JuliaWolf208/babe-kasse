@@ -151,7 +151,7 @@
   .shop-meta.j { color: var(--julia); }
   .shop-meta.c { color: var(--christine); }
   .shop-item.done .shop-name { text-decoration: line-through; color: var(--muted); }
-  .shop-item { touch-action: pan-y; }
+  .shop-item { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
   .shop-drag-ghost { position: fixed; z-index: 999; pointer-events: none; margin: 0; box-shadow: 0 10px 28px rgba(0,0,0,0.22); transform: scale(1.02); opacity: 0.97; }
   .shop-placeholder { background: var(--bg); border: 2px dashed var(--border); box-shadow: none; }
   body.shop-dragging { user-select: none; -webkit-user-select: none; }
@@ -468,14 +468,20 @@ let shopAutoScrollDir = 0;
 let shopAutoScrollRAF = null;
 
 const SHOP_LONGPRESS_MS = 380;
-const SHOP_MOVE_CANCEL_PX = 10;
+const SHOP_MOVE_CANCEL_PX = 12;
 const SHOP_EDGE_PX = 70;
 const SHOP_SCROLL_SPEED = 12;
 
 function initShopDrag() {
-  document.getElementById('shopOpenList').addEventListener('pointerdown', onShopItemPointerDown);
+  const list = document.getElementById('shopOpenList');
+  list.addEventListener('pointerdown', onShopItemPointerDown);
+  list.addEventListener('contextmenu', e => { if (e.target.closest('.shop-item')) e.preventDefault(); });
 }
 
+// touch-action: none on .shop-item hands the whole gesture to us, so there's no
+// race with the browser's own scroll/text-selection recognizer deciding to steal
+// the touch mid-long-press. While the long-press timer is pending, movement past
+// the threshold is treated as a scroll and forwarded to the page manually.
 function onShopItemPointerDown(e) {
   if (shopDragPendingEl || shopDragActive) return;
   if (e.target.closest('button')) return;
@@ -485,29 +491,40 @@ function onShopItemPointerDown(e) {
   shopDragStartX = e.clientX;
   shopDragStartY = e.clientY;
   const pointerId = e.pointerId;
+  let manualScrolling = false;
+  let lastScrollY = e.clientY;
 
-  const cancelPending = () => {
+  const stopPending = () => {
     clearTimeout(shopDragTimer);
     shopDragTimer = null;
     shopDragPendingEl = null;
     document.removeEventListener('pointermove', onPendingMove);
-    document.removeEventListener('pointerup', cancelPending);
-    document.removeEventListener('pointercancel', cancelPending);
+    document.removeEventListener('pointerup', onPendingUp);
+    document.removeEventListener('pointercancel', onPendingUp);
   };
   const onPendingMove = (ev) => {
     if (ev.pointerId !== pointerId) return;
+    if (manualScrolling) {
+      window.scrollBy(0, lastScrollY - ev.clientY);
+      lastScrollY = ev.clientY;
+      return;
+    }
     if (Math.abs(ev.clientX - shopDragStartX) > SHOP_MOVE_CANCEL_PX || Math.abs(ev.clientY - shopDragStartY) > SHOP_MOVE_CANCEL_PX) {
-      cancelPending();
+      clearTimeout(shopDragTimer);
+      shopDragTimer = null;
+      shopDragPendingEl = null;
+      manualScrolling = true;
+      lastScrollY = ev.clientY;
     }
   };
+  const onPendingUp = () => stopPending();
+
   document.addEventListener('pointermove', onPendingMove);
-  document.addEventListener('pointerup', cancelPending);
-  document.addEventListener('pointercancel', cancelPending);
+  document.addEventListener('pointerup', onPendingUp);
+  document.addEventListener('pointercancel', onPendingUp);
 
   shopDragTimer = setTimeout(() => {
-    document.removeEventListener('pointermove', onPendingMove);
-    document.removeEventListener('pointerup', cancelPending);
-    document.removeEventListener('pointercancel', cancelPending);
+    stopPending();
     startShopDrag(itemEl, pointerId, e.clientX, e.clientY);
   }, SHOP_LONGPRESS_MS);
 }
