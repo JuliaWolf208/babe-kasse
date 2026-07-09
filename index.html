@@ -152,7 +152,7 @@
   .shop-meta.c { color: var(--christine); }
   .shop-item.done .shop-name { text-decoration: line-through; color: var(--muted); }
   .shop-item { user-select: none; -webkit-user-select: none; }
-  .shop-drag-handle { touch-action: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; cursor: grab; color: var(--muted); display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 4px; margin: -4px; }
+  .shop-drag-handle { touch-action: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; cursor: grab; color: var(--muted); display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 8px; margin: -8px; }
   .shop-drag-handle:active { cursor: grabbing; color: var(--text); }
   .shop-drag-ghost { position: fixed; z-index: 999; pointer-events: none; margin: 0; box-shadow: 0 10px 28px rgba(0,0,0,0.22); transform: scale(1.02); opacity: 0.97; }
   .shop-placeholder { background: var(--bg); border: 2px dashed var(--border); box-shadow: none; }
@@ -850,7 +850,7 @@ function renderShop() {
             <div class="shop-meta ${addedCls}">Hinzugefügt von ${addedName}</div>
           </div>
           <div class="shop-drag-handle" title="Ziehen zum Verschieben">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><circle cx="9" cy="6" r="2.1"/><circle cx="15" cy="6" r="2.1"/><circle cx="9" cy="12" r="2.1"/><circle cx="15" cy="12" r="2.1"/><circle cx="9" cy="18" r="2.1"/><circle cx="15" cy="18" r="2.1"/></svg>
           </div>
           <button class="btn-del" onclick="deleteShopItem('${i.id}')" title="Löschen">✕</button>
         </div>`;
