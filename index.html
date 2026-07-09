@@ -474,7 +474,7 @@ const SHOP_SCROLL_SPEED = 12;
 
 function initShopDrag() {
   const list = document.getElementById('shopOpenList');
-  list.addEventListener('pointerdown', onShopItemPointerDown);
+  list.addEventListener('pointerdown', onShopItemPointerDown, { passive: true });
   list.addEventListener('contextmenu', e => { if (e.target.closest('.shop-item')) e.preventDefault(); });
 }
 
@@ -482,7 +482,10 @@ function initShopDrag() {
 // natively (smooth, off-main-thread) when the finger moves before the long-press
 // fires; we just cancel our pending timer once that happens. user-select/
 // -webkit-touch-callout on .shop-item stop the browser's own long-press text
-// selection or context menu from hijacking the same gesture.
+// selection or context menu from hijacking the same gesture. All pending-phase
+// listeners are passive (they never call preventDefault) so the browser never
+// has to wait on our JS before starting a scroll — otherwise every touch that
+// starts on a list item would block/delay the scroll compositor and feel janky.
 function onShopItemPointerDown(e) {
   if (shopDragPendingEl || shopDragActive) return;
   if (e.target.closest('button')) return;
@@ -508,9 +511,9 @@ function onShopItemPointerDown(e) {
     }
   };
 
-  document.addEventListener('pointermove', onPendingMove);
-  document.addEventListener('pointerup', stopPending);
-  document.addEventListener('pointercancel', stopPending);
+  document.addEventListener('pointermove', onPendingMove, { passive: true });
+  document.addEventListener('pointerup', stopPending, { passive: true });
+  document.addEventListener('pointercancel', stopPending, { passive: true });
 
   shopDragTimer = setTimeout(() => {
     stopPending();
