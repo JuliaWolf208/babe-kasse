@@ -151,7 +151,9 @@
   .shop-meta.j { color: var(--julia); }
   .shop-meta.c { color: var(--christine); }
   .shop-item.done .shop-name { text-decoration: line-through; color: var(--muted); }
-  .shop-item { touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  .shop-item { user-select: none; -webkit-user-select: none; }
+  .shop-drag-handle { touch-action: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; cursor: grab; color: var(--muted); display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 4px; margin: -4px; }
+  .shop-drag-handle:active { cursor: grabbing; color: var(--text); }
   .shop-drag-ghost { position: fixed; z-index: 999; pointer-events: none; margin: 0; box-shadow: 0 10px 28px rgba(0,0,0,0.22); transform: scale(1.02); opacity: 0.97; }
   .shop-placeholder { background: var(--bg); border: 2px dashed var(--border); box-shadow: none; }
   body.shop-dragging { user-select: none; -webkit-user-select: none; }
@@ -454,75 +456,37 @@ window.addShopItem = async function() {
   } catch(e) { alert('Fehler: ' + e.message); }
 };
 
-let shopDragTimer = null;
-let shopDragPendingEl = null;
 let shopDragPointerId = null;
 let shopDragActive = false;
 let shopDragGhost = null;
 let shopDragPlaceholder = null;
-let shopDragStartX = 0;
-let shopDragStartY = 0;
 let shopDragOffsetX = 0;
 let shopDragOffsetY = 0;
 let shopAutoScrollDir = 0;
 let shopAutoScrollRAF = null;
 
-const SHOP_LONGPRESS_MS = 380;
-const SHOP_MOVE_CANCEL_PX = 12;
 const SHOP_EDGE_PX = 70;
 const SHOP_SCROLL_SPEED = 12;
 
 function initShopDrag() {
   const list = document.getElementById('shopOpenList');
-  list.addEventListener('pointerdown', onShopItemPointerDown, { passive: true });
-  list.addEventListener('contextmenu', e => { if (e.target.closest('.shop-item')) e.preventDefault(); });
+  list.addEventListener('pointerdown', onShopItemPointerDown);
+  list.addEventListener('contextmenu', e => { if (e.target.closest('.shop-drag-handle')) e.preventDefault(); });
 }
 
-// touch-action: pan-y lets the browser keep handling normal vertical scrolling
-// natively (smooth, off-main-thread) when the finger moves before the long-press
-// fires; we just cancel our pending timer once that happens. user-select/
-// -webkit-touch-callout on .shop-item stop the browser's own long-press text
-// selection or context menu from hijacking the same gesture. All pending-phase
-// listeners are passive (they never call preventDefault) so the browser never
-// has to wait on our JS before starting a scroll — otherwise every touch that
-// starts on a list item would block/delay the scroll compositor and feel janky.
+// Dragging only starts from the dedicated grip icon (touch-action: none on
+// .shop-drag-handle), so there's no ambiguity with scrolling to resolve —
+// the rest of the item keeps its default touch behaviour and scrolls natively.
 function onShopItemPointerDown(e) {
-  if (shopDragPendingEl || shopDragActive) return;
-  if (e.target.closest('button')) return;
-  const itemEl = e.target.closest('.shop-item');
+  if (shopDragActive) return;
+  const handle = e.target.closest('.shop-drag-handle');
+  if (!handle) return;
+  const itemEl = handle.closest('.shop-item');
   if (!itemEl || !itemEl.dataset.id) return;
-  shopDragPendingEl = itemEl;
-  shopDragStartX = e.clientX;
-  shopDragStartY = e.clientY;
-  const pointerId = e.pointerId;
-
-  const stopPending = () => {
-    clearTimeout(shopDragTimer);
-    shopDragTimer = null;
-    shopDragPendingEl = null;
-    document.removeEventListener('pointermove', onPendingMove);
-    document.removeEventListener('pointerup', stopPending);
-    document.removeEventListener('pointercancel', stopPending);
-  };
-  const onPendingMove = (ev) => {
-    if (ev.pointerId !== pointerId) return;
-    if (Math.abs(ev.clientX - shopDragStartX) > SHOP_MOVE_CANCEL_PX || Math.abs(ev.clientY - shopDragStartY) > SHOP_MOVE_CANCEL_PX) {
-      stopPending();
-    }
-  };
-
-  document.addEventListener('pointermove', onPendingMove, { passive: true });
-  document.addEventListener('pointerup', stopPending, { passive: true });
-  document.addEventListener('pointercancel', stopPending, { passive: true });
-
-  shopDragTimer = setTimeout(() => {
-    stopPending();
-    startShopDrag(itemEl, pointerId, e.clientX, e.clientY);
-  }, SHOP_LONGPRESS_MS);
+  startShopDrag(itemEl, e.pointerId, e.clientX, e.clientY);
 }
 
 function startShopDrag(itemEl, pointerId, clientX, clientY) {
-  shopDragPendingEl = null;
   shopDragActive = true;
   shopDragPointerId = pointerId;
 
@@ -884,6 +848,9 @@ function renderShop() {
           <div class="shop-info">
             <div class="shop-name">${esc(i.name)}</div>
             <div class="shop-meta ${addedCls}">Hinzugefügt von ${addedName}</div>
+          </div>
+          <div class="shop-drag-handle" title="Ziehen zum Verschieben">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
           </div>
           <button class="btn-del" onclick="deleteShopItem('${i.id}')" title="Löschen">✕</button>
         </div>`;
